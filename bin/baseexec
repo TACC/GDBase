@@ -1,0 +1,152 @@
+#!/usr/bin/python
+# -*- python -*-
+# This file is part of GDBase.
+#
+# GDBase is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# GDBase is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GDBase.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright 2009 Anthony DiGirolamo, Dan Stanzione, Karl Lindekugel
+# Copyright 2012 Robert McLay, Carlos Rosales, Doug James
+#
+# **********************************************************************
+#
+# 30 Apr 2012 -- Appended current directory ('.') to sys.path in front
+#                of directory to shared agents.  This allows users to
+#                override shared agents with their personal copies. (DJ)
+#
+# TO DO       -- Modify sys.path.append and os.environ.keys code 
+#                duplicated in gdbase and baseexec.
+#
+# **********************************************************************
+
+
+import sys,os,getopt
+
+sys.path.append('.')  # allows user to override shared agents with personal agents
+sys.path.append(sys.path[0] + '/../share/gdbase') # location of shared agents
+
+if os.environ.keys().count('GDBASE_PREFIX') > 0:
+	opd_dir = os.environ['GDBASE_PREFIX']
+	sys.path.append(opd_dir + '/share/gdbase')
+
+working_dir = ''
+if os.environ.keys().count('PBS_O_WORKDIR') > 0:
+	working_dir = os.environ['PBS_O_WORKDIR']
+
+#from gdbase import *
+
+def cleanup():
+	os.system('execmpi -pernode -comm none ' + opd_dir + '/cleanup.sh')
+
+def moveup():
+	os.system('execmpi -pernode -comm none ' + opd_dir + '/moveup.sh ' + working_dir)
+
+def dbmerge(name):
+	os.system('dbmerge %s' % name)
+
+def clean():
+	os.system('rm -f gdblog-*')
+
+def usage():
+	os.system('opd -h')
+# 	stng = """Usage: baseexec [OPTIONS]... [EXEC] [ARGS]... 
+# 
+# Options: 
+#   -h, --help          display this message
+#   -d, --debug-spec    use a debugging specification file 
+#   -t, --timeout       set a time out for message collection
+#   -s, --script        use a custom debugging script
+#   -a, --agent	      use an agent for collection
+#   -l, --local	      store collected data in /tmp
+# 
+# Examples: 
+#   Execute baseexec on myapp with only crash reporting
+#   baseexec ./myapp arg1 arg2
+# 
+#   Execute baseexec using a debugging specification file
+#   baseexec -d user.spec ./myapp arg1 arg2
+# 
+#   Execute baseexec using a custom debugging script
+#   baseexec -s user.script ./myapp arg1 arg2
+# 
+#   Execute baseexec using the deadlock agent
+#   baseexec -a deadlock ./myapp arg1 arg2"""
+# 	print stng
+
+def main():
+	i = 1
+	output = ""
+	try:
+		opts,args = getopt.getopt(sys.argv[1:], "d:s:ht:a:l")
+	except getopt.GetoptError, err:
+		print str(err)
+		usage()
+		return	
+	
+	cmd_opts = []
+	cmd_opts.append('opd')
+	local = False
+	for o,a in opts:
+		if o in ("-h", "--help"):
+			usage()
+			return
+		elif o in ("-d", "--debug-spec"):
+			cmd_opts.append("-d")
+			cmd_opts.append(a)
+		elif o in ("-t", "--timeout"):
+			cmd_opts.append("-t")
+			cmd_opts.append(a)
+		elif o in ("-s", "--script"):
+			cmd_opts.append("-s")
+			cmd_opts.append(a)
+		elif o in ("-a", "--agent"):
+			cmd_opts.append("-s")
+			cmd_opts.append(a + ".tcl")
+		elif o in ("-l", "--local"):
+			cmd_opts.append("-l")
+			local = True
+
+	if len(args) == 0:
+		usage()
+		return
+
+	index = sys.argv.index(args[0])
+	for o in sys.argv[index:]:
+		cmd_opts.append(o)
+
+
+
+	program_name = sys.argv[index]
+
+	cmdline = "mpiexec "
+	for o in cmd_opts:
+		cmdline = cmdline + o + " "
+
+	cleanup()
+
+	os.system(cmdline)
+
+	if local:
+		moveup()
+
+	cleanup()
+
+	dbmerge(program_name)
+
+	clean()	
+
+	# Print end-of-run
+	os.system('gdbase')
+
+if __name__ == "__main__":
+	main()

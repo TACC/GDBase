@@ -1,0 +1,99 @@
+# This file is part of GDBase.
+#
+# GDBase is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# GDBase is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GDBase.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright 2009 Anthony DiGirolamo, Dan Stanzione, Karl Lindekugel,
+#                Robert McLay
+
+SRC         := src
+TCL_VERSION := @TCL_VERSION@
+GETLINE_OBJ := @GETLINE_OBJ@
+
+ifneq ($(GETLINE_OBJ),)
+  GETLINE_OBJ := $(SRC)/$(GETLINE_OBJ)
+endif
+
+CC   := @CC@
+
+GDB_PATH   := @GDB@
+INSTALL    := install -D
+INSTALLDIR := @prefix@
+BINARY     := bin
+SHARES     := share/gdbase
+
+ifneq ($(wildcard /sw),)
+   SWLIB := -L/sw/lib
+   SWINC := -I/sw/include -I/sw/include/postgresql
+endif
+
+INCLUDES   := $(SWINC) -I/usr/include/tcl$(TCL_VERSION) \
+             -I/usr/include/postgresql -DPREFIX='$(INSTALLDIR)' \
+             -DGDB_PATH='$(GDB_PATH)'
+
+LIBPATHS   := $(SWLIB)
+CFLAGS     := -g -O0 $(INCLUDES)
+LIBS       := $(LIBPATHS) -ltcl$(TCL_VERSION) -lsqlite3
+
+
+all: bin/opd bin/dbmerge
+
+makefile: Makefile.in
+	./configure
+
+
+bin/opd: $(SRC)/opd.o $(SRC)/gdbmi.o $(SRC)/dblog.o $(SRC)/vector.o $(SRC)/parser.o $(SRC)/findexec.o $(GETLINE_OBJ)
+	$(LINK.c) -o $@ $^ $(LIBS)
+
+bin/dbmerge: $(SRC)/dbmerge.o $(SRC)/parser.o $(SRC)/vector.o $(GETLINE_OBJ)
+	$(LINK.c) -o $@ $^ $(LIBS) -lpq
+
+$(SRC)dbmerge.o: $(SRC)/dbmerge.c
+$(SRC)opd.o: $(SRC)/opd.c $(SRC)/findexec.h
+$(SRC)gdbmi.o: $(SRC)/gdbmi.c $(SRC)/gdbmi.h
+$(SRC)dblog.o: $(SRC)/dblog.c $(SRC)/dblog.h
+$(SRC)parser.o: $(SRC)/parser.c $(SRC)/parser.h
+$(SRC)vector.o: $(SRC)/vector.c $(SRC)/vector.h
+$(SRC)getline.o: $(SRC)/getline.c
+$(SRC)findexec.o: $(SRC)/findexec.c $(SRC)/findexec.h
+
+install:
+	$(INSTALL) -m 644 share/matchingagent.tcl   $(INSTALLDIR)/$(SHARES)/matchingagent.tcl
+	$(INSTALL) -m 644 share/matchinganalysis.py $(INSTALLDIR)/$(SHARES)/matchinganalysis.py
+	$(INSTALL) -m 644 share/single_step.tcl     $(INSTALLDIR)/$(SHARES)/single_step.tcl
+	$(INSTALL) -m 644 share/single_step.py      $(INSTALLDIR)/$(SHARES)/single_step.py
+	$(INSTALL) -m 644 share/allgatherv.py  	    $(INSTALLDIR)/$(SHARES)/allgatherv.py
+	$(INSTALL) -m 644 share/allgatherv.tcl 	    $(INSTALLDIR)/$(SHARES)/allgatherv.tcl
+	$(INSTALL) -m 644 share/deadlock.py   	    $(INSTALLDIR)/$(SHARES)/deadlock.py
+	$(INSTALL) -m 644 share/deadlock.tcl  	    $(INSTALLDIR)/$(SHARES)/deadlock.tcl
+	$(INSTALL) -m 644 share/endofrun.py   	    $(INSTALLDIR)/$(SHARES)/endofrun.py
+	$(INSTALL) -m 644 share/gdbase.py           $(INSTALLDIR)/$(SHARES)/gdbase.py
+	$(INSTALL) -m 644 share/mpi.script    	    $(INSTALLDIR)/$(SHARES)/mpi.script
+	$(INSTALL) -m 644 share/nanreport.py        $(INSTALLDIR)/$(SHARES)/nanreport.py
+	$(INSTALL) -m 644 share/opd.tcl             $(INSTALLDIR)/$(SHARES)/opd.tcl
+	$(INSTALL) -m 644 share/segreport.py  	    $(INSTALLDIR)/$(SHARES)/segreport.py
+	$(INSTALL) -m 755 share/moveup.sh     	    $(INSTALLDIR)/$(BINARY)/moveup.sh
+	$(INSTALL) -m 755 share/cleanup.sh    	    $(INSTALLDIR)/$(BINARY)/cleanup.sh
+	$(INSTALL) -m 755 bin/baseexec      	    $(INSTALLDIR)/$(BINARY)/baseexec
+	$(INSTALL) -m 755 bin/dbmerge       	    $(INSTALLDIR)/$(BINARY)/dbmerge
+	$(INSTALL) -m 755 bin/gdbase        	    $(INSTALLDIR)/$(BINARY)/gdbase
+	$(INSTALL) -m 755 bin/opd           	    $(INSTALLDIR)/$(BINARY)/opd
+
+neat:
+	$(RM) *~ src/*~
+
+clean: neat
+	$(RM)  bin/*.pyc src/*.o
+
+clobber: clean
+	$(RM) bin/opd bin/dbmerge

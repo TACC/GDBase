@@ -1,0 +1,115 @@
+#!/usr/bin/python
+# -*- python -*-
+# This file is part of GDBase.
+#
+# GDBase is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# GDBase is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GDBase.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright 2009 Anthony DiGirolamo, Dan Stanzione, Karl Lindekugel
+# Copyright 2012 Robert McLay, Carlos Rosales, Doug James
+#
+# **********************************************************************
+#
+# 30 Apr 2012 -- Appended current directory ('.') to sys.path in front
+#                of directory to shared agents.  This allows users to
+#                override shared agents with their personal copies. (DJ)
+#
+# TO DO       -- Modify sys.path.append and os.environ.keys code 
+#                duplicated in gdbase and baseexec.
+#
+# **********************************************************************
+
+
+import sys,os,getopt
+
+sys.path.append('.')  # allows user to override shared agents with personal agents
+sys.path.append(sys.path[0] + '/../share/gdbase') # location of shared agents
+
+
+if os.environ.keys().count('GDBASE_PREFIX') > 0:
+	opd_dir = os.environ['GDBASE_PREFIX']
+	sys.path.append(opd_dir + '/share/gdbase')
+
+from gdbase import *
+from endofrun import *
+
+def usage():
+	st = """Usage: gdbase -c database_config -j jobid [-a agent]"""
+	print st
+
+def main():
+	try:
+		opts,args = getopt.getopt(sys.argv[1:], "a:j:c:hi")
+	except getopt.GetoptError, err:
+		print str(err)
+		usage()
+		return
+
+	interactive = False
+	jobid = None
+	dbfile = None
+	database = None
+	agents = []
+
+	for o,a in opts:
+		if o in ("-h", "--help"):
+			usage()
+			return
+		elif o in ("-a", "--agent"):
+			agents.append(a)
+		elif o in ("-j", "--jobid"):
+			jobid = a
+		elif o in ("-c", "--config"):
+			dbfile = a
+		elif o in ("-i", "--interactive"):
+			interactive = True
+
+	f = open(dbfile,'r')
+	database = f.readline()
+	f.close()
+
+	database = database.replace('\n','')
+	db1 = database.split(' ')
+	db2 = []
+
+	for i in db1:
+		db2.append(i.split('='))
+
+	dbdict = dict(db2)
+	database = dbdict['host'] + ':' + dbdict['dbname'] + ':' + dbdict['user'] + ':' + dbdict['password']
+	agent(jobid, database)
+
+	if not interactive:
+		# add error checking on agent names
+		for a in agents:
+			print a,
+		print ''
+		for a in agents:
+			exec "from " + a + " import *"
+			agent(jobid, database)
+	else:
+		import traceback, code
+		db = GDBase()
+		db.connect(database)
+		J = db.getJob(jobid)
+		M = J.getMessages()
+		try:
+			raise None
+		except:
+			frame = sys.exc_info()[2].tb_frame
+		namespace = dict(frame.f_globals)
+		namespace.update(frame.f_locals)
+		code.interact(banner="Entering Interactive Session", local=namespace)
+
+if __name__ == "__main__":
+	main()

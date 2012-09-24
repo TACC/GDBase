@@ -1,0 +1,34 @@
+Installation
+============
+
+GDBase relies on:
+
+* gdb-6.8				http://sourceware.org/gdb/
+* sqlite-3.5.9			http://www.sqlite.org/
+* tcl-8.4.19			http://www.tcl.tk/
+* postgresql-8.3.3		http://www.postgresql.org/
+* Python-2.5.2			http://www.python.org/
+* PyGreSQL-3.8.1		http://www.druid.net/pygresql/
+
+The versions listed above have been tested with GDBase but earlier versions 
+will likely work as well. If you have these installed already you're all
+set. The recommended installation procedure is:
+
+    ./configure --prefix=</FullPathToInstallDir> --with-tcl=<version>
+	make
+	make install
+
+If you plan on using the postgres database to collect your debugging
+information you will need to config gdbase for your server. Create a file with 
+the following:
+
+	dbname=opd host=localhost port=5432 user=postgres password=mypassword
+
+Then specify that file on the command line when executing gdbase:
+
+	gdbase --config ./myconfig
+
+Change the information to match your needs. An example file is located in 
+db/db.config. For further details on the database setup please refer to the 
+GDBase User Guide.
+

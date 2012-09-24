@@ -1,0 +1,165 @@
+Running GDBase
+--------------
+
+Compile your application with debugging flags using the -g switch. Change
+your job execution script to include the GDBase wrapper script in place of
+mpiexec or mpirun as shown below.
+
+	baseexec MyApplication arg1 arg2
+
+This is a simple wrapper script that does two things. It executes your
+application under debugger control, and merges individual process results
+into a central database. It is equivalent to using the following commands:
+
+	mpiexec opd -e MyApplication arg1 arg2
+	dbmerge MyApplication
+	rm gdblog-MyApplication-*
+
+Here, the first command executes the opd application using mpiexec. Upon
+launch, opd will execute MyApplication and it's arguments if any. You may
+use mpirun or any other MPI job launcher provided you can access the 
+following information through environment variables:
+
+*Job ID* - The default is PBS_JOBID, you can override this using the 
+           "--jobid" command line switch to opd.
+
+*MPI Task Rank or PID* - The default is MPIRUN_RANK when using MVAPICH and
+                         OMPI_MCA_ns_nds_vpid when using OpenMPI 1.2.x or 
+                         earlier. The "--rank_var" switch will override this.
+
+*Number of Processes in the MPI job* - The default is MPIRUN_NPROCS when using
+                                       MVAPICH and OMPI_MCA_ns_nds_num_procs 
+                                       when using OpenMPI 1.2.x or earlier. Use
+                                       the "--nprocs_var" switch to override this.
+
+In some cases you may want to use the above the commands or create your own
+wrapper script for your users.
+
+Whether you use the baseexec wrapper script, or execute the commands manually,
+you application will be run under GDBase and errors will be logged if they occur.
+No other debugging is performed by default.
+
+To get the error log, run the gdbase analysis tool when your job is complete.
+
+	gdbase --agent segreport -j JOBID
+
+Where `JOBID` is the identifier used by your scheduling system.
+
+
+Setting Breakpoints and Watchpoints
+-----------------------------------
+
+You have a couple options when setting breakpoints in your
+application. The simplest way is to create a debugging specification
+file. You may tell GDBase the location of your specification file using
+the -d or --debug-spec command line switch.
+
+	baseexec -d specfile application
+
+Here is what a debugging spec file might look like:
+
+	# This is a comment
+	# @bp sets a breakpoint
+	#
+	# When breakpoints are hit, a stack trace will automatically be
+	# logged in the database. Immediately following a breakpoint you 
+	# may define any number of variables you wish to log. Each 
+	# variable should be on its own line.
+
+	@bp functionName
+		variable1
+		variable2
+
+	@bp myapp.c:231
+		variable3
+
+	# @watch sets a watchpoint
+	# argument 1: the location in code where the watchpoint is created
+	# argument 2: the name of the variable to watch
+
+	@watch myapp.c:10 variable4
+
+
+Advanced Control
+----------------
+
+If the debugging specification file doesn't give you enough control,
+you may write your own debugging script in which you can perform any
+set of operations the TCL language provides including conditionals.
+
+	baseexec -s scriptfile myapp
+
+Within the scrip, the first method executed is `user_setup`. Every
+debugging script you write must contain this method. This is where you
+want to set your initial breakpoints and the methods that are called
+when a breakpoint is hit. The example script below illustrates setting a
+single a breakpoint and performing a few operations when the breakpoint
+is reached.
+
+	# TCL Comments begin with a # symbol
+
+	proc user_setup {} {
+		gdb_setBreakpoint "main" "get_info"
+		set output [gdb_lastOutput]
+		db_logMessage "user.break" $output
+	}
+
+	proc get_info {} {
+		gdb_getStackFrames
+		set output [gdb_lastOutput]
+		db_logMessage "myinfo" $output
+
+		gdb_listLocals
+		set output [gdb_lastOutput]
+		db_logMessage "myinfo" $output
+
+		gdb_evalExpr var_name
+		set output [gdb_lastOutput]
+		db_logMessage "myinfo" $output
+
+		gdb_continue
+	}
+
+Method Reference
+----------------
+
+Here is a list of currently supported methods for use in a debugging
+script files. Most of these replicate a function of GDB.
+
+`db_logMessage messagekey messagevalue`
+Log a message to the database.
+
+`gdb_lastOutput`
+Retrieve the last GDB output.
+
+`gdb_setBreakpoint location tclmethod`
+Set a breakpoint.
+
+`gdb_setWatchpoint mode variable`
+Set a watchpoint.
+
+`gdb_getStackFrames`
+Get the local stack frames.
+
+`gdb_evalExpr expression`
+Use GDB's expression evalutation.
+
+`gdb_listLocals`
+List all local variables.
+
+`gdb_continue`
+Resume execution.
+
+`gdb_stepNext`
+Step one line of code.
+
+`gdb_stepFinish`
+Resumes the execution of the inferior program until the current function
+is exited.
+
+`opd_getRank`
+Get the current rank or MPI task number.
+
+`opd_getSize`
+Get the number of tasks in the current job.
+

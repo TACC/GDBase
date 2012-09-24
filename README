@@ -1,0 +1,25 @@
+GDBase
+======
+
+GDBase is an open source offline parallel debugger designed for scalable execution
+and flexible analysis. The debugger works by collecting user-specified data during
+the execution of a job and storing it in a database, which is available for offline
+inspection.
+
+GDBase decouples execution and analysis, and provides the means of data mining
+the collected data for faults in the code. This version is a proof-of-concept 
+prototype. 
+
+For further details refer to the documentation in the docs directory.
+
+GDBase is released under GPL License Version 3. You should have received a copy 
+of the full license text with this distribution. If you have not, please refer 
+to http://www.gnu.org/copyleft/gpl.html.
+
+2012/09/24
+Doug James - djames (at) tacc.utexas.edu
+Carlos Rosales-Fernandez - carlos (at) tacc.utexas.edu
+
+
+
+
